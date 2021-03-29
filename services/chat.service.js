@@ -5,5 +5,5 @@ const $ = require('../mappers/_index.map');
 function testone() { return "hello from chat service"; }
 
 moddule.exports = { 
-    testone 
+    testone,
 };
