@@ -15,7 +15,7 @@ const msgmodel = {
     tochat : { type : Types.ObjectId, ref : 'chat' },
 
     // Discord-like 
-    emotions : [ObjectId],
+    emotions : [Types.ObjectId],
     marks : Number,
 
     date : { type : Number, default : Date.now }

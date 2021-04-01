@@ -4,6 +4,8 @@ const chat = require('./chat.service');
 const message = require('./message.service');
 const v = require('./validation');
 
+const answers = require('./answer');
+
 const mapper = require('../mappers/_index.map');
 
 module.exports = {
@@ -12,5 +14,6 @@ module.exports = {
     message,
     v,
 
+    answers,
     mapper
 }
