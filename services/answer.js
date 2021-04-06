@@ -7,8 +7,7 @@ function baseanswer(status, code, msg, payload)
         error: msg,
         ...payload
     };
-    if(status) delete resobj.payload;
-    return this.json(resobj);
+    return this.status(code).json(resobj);
 }
 
 function okanswer()
@@ -29,9 +28,11 @@ function dataanswer(payload)
 
 
 module.exports = (req,res,next) => {
+    
     res.baseanswer = baseanswer;
     res.okanswer = okanswer;
     res.erroranswer = erroranswer;
     res.dataanswer = dataanswer;
     next();
+
 }
