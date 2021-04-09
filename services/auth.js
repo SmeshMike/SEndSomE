@@ -9,67 +9,81 @@ const privatekey = crypto.randomBytes(128).toString('hex');
 function level(lvl) 
 {
     return function (req,res,next) {
+        if(req.level === 0 && lvl === 0 && req.refresh) next();
         if(req.level === 0) return res.erroranswer(401, "Authorization requiered");
         if(req.level < lvl) return res.erroranswer(403, "Permission denied");
         next();
     };
 }
 
-async function authorize(req,res,next) 
+async function authorize(req,res,next)
 {
-    let token = req.headers['x-access-token'] || req.cookies['x-access-token'] || req.body['accesstoken'];
+    let token = req.headers['x-access-token'] || req.cookies['x-access-token'] || req.body['access_token'] || req.body['refresh_token'];
 
     req.level = 0;
     req.user = null;
+    req.expired = false;
+    req.refresh = false;
 
     if(!token) return next();
 
-    let data = jwt.verify(token,privatekey);
+    jwt.verify(token,privatekey,(err,decoded) => {
+        
+        if(err && err.name === 'TokenExpiredError')
+        {
+            req.expired = true;
+            next();
+        }
+        if(err) res.erroranswer(400,'Invalid token');
 
-    //TODO: more info (e.g.token expired)
-    //TODO: exceptios
-    if(!data) return res.erroranswer(400, "Invalid token");
-    let { innertoken } = data;
+        if(!decoded) return res.erroranswer(500, "...");
+        let { innertoken, refreshtoken } = decoded;
 
-    if(!innertoken) return res.erroranswer(400, "Invalid token");
+        if(refreshtoken)
+        {
+            req.refresh = true;
+            next();
+        }
 
-    let connection = await $.connection.findOne({ token : innertoken }).exec();
-    if(!connection) return res.erroranswer(400, "Wtf man?");
+        if(!innertoken) return res.erroranswer(400, "Invalid token");
 
-    let user = await $.user.findOne({ _id : connection.uid });
-    if(!user) return res.erroranswer(500, "Well.... we don't know who u r");
+        let connection = await $.connection.findOne({ token : innertoken }).exec();
+        if(!connection) return res.erroranswer(400, "Wrong one... ?");
 
-    req.user = user;
-    req.level = user.role;
+        let user = await $.user.findOne({ _id : connection.uid });
+        if(!user) return res.erroranswer(500, "Well.... we don't know who u r");
 
-    next();
+        req.user = user;
+        req.level = user.role;
+    
+        next();
+
+    });
 }
 
 async function generate(uid)
 {
     let innertoken = crypto.randomBytes(64).toString('hex');
+    let refreshtoken = crypto.randomBytes(64).toString('hex');
 
     // 24 hours
     let token = jwt.sign({ innertoken }, privatekey, { expiresIn : 60 * 60 * 24 });
     // 30 days
-    let refresh = jwt.sign({ uid }, privatekey, { expiresIn : 60 * 60 * 24 * 30});
+    let refresh = jwt.sign({ refreshtoken }, privatekey, { expiresIn : 60 * 60 * 24 * 30});
 
     let connection = new $.connection({
         uid : uid,
         token : innertoken,
-        refresh : refresh
+        refresh : refreshtoken
     });
 
     await connection.save();
-    return token;
+    return { token, refresh };
 }
 
 async function remove(token)
 {
-    //TODO: exceptios
-    //FIXME: not necessary
-    let data = jwt.verify(token,privatekey);
-    if(!data) return false;
+    let data = jwt.decode(token);
     
     let { innertoken } = data;
     if(!innertoken) return false;
@@ -81,15 +95,41 @@ async function remove(token)
     return true;
 }
 
-async function update(token)
+function update(keytoken)
 {
-    //TODO: do smth usefull
+    return new Promise(async (res,rej) => {
+
+        jwt.verify(keytoken,privatekey,(err,decoded) => {
+
+            if(err) return res(false);
+
+            let { refreshtoken } = decoded;
+            if(!refreshtoken) return res(false);
+
+            let connection = await $.connection.findOne({ refresh : refreshtoken }).exec();
+            if(!connection) return res(false);
+
+            let innertoken = crypto.randomBytes(64).toString('hex');
+            let refreshtoken = crypto.randomBytes(64).toString('hex');
+            let token = jwt.sign({ innertoken }, privatekey, { expiresIn : 60 * 60 * 24 });
+            let refresh = jwt.sign({ refreshtoken }, privatekey, { expiresIn : 60 * 60 * 24 * 30});
+
+            connection.token = innertoken;
+            connection.refresh = refreshtoken;
+            connection.lastmodif = Date.now();
+
+            await connection.save();
+
+            res({ token, refresh });
+
+        });
+    });  
 }
 
 async function clear(uid)
 {
     let connections = await $.connection.find({ uid : uid }).exec();
-    for(let c of connection) await c.remove();
+    for(let c of connections) await c.remove();
 }
 
 module.exports = { level, authorize, generate, update, remove, clear };

@@ -11,7 +11,8 @@ const connectionmodel = {
 
     uid : { type : Types.ObjectId, ref : 'user' },
 
-    date : { type : Number, default : Date.now }
+    date : { type : Number, default : Date.now },
+    latsmodif : { type : Number, default : Date.now }
     
 }
 
