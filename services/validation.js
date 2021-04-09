@@ -2,7 +2,9 @@
 const Schema = require('validate');
 const { Types } = require('mongoose');
 
-module.exports = function (obj) {
+module.exports = function (obj, inits) {
+
+    if(!inits) inits = {};
 
     const sch = {};
     for(let prop in obj)
@@ -59,6 +61,7 @@ module.exports = function (obj) {
         else {
             for(let prop in req.body)
             {
+                if(!(prop in sch)) { delete req.body[prop]; continue; }
                 if(prop.length > 2 && prop.substr(prop.length - 2) === 'id')
                 {
                     try 
@@ -77,6 +80,8 @@ module.exports = function (obj) {
                 }
             }
 
+            let polinated = Object.assign({}, inits, req.body);
+            req.body = polinated;
             next();
             
         }
