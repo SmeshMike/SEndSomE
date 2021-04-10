@@ -2,7 +2,7 @@
 const { Router } = require('express');
 const router = Router();
 
-const $ = require('../services/_index');
+const $ = require('../services/_index.service');
 
 router.get('/', async (req,res) => {
     res.send('base operations');
@@ -31,7 +31,11 @@ router.use($.lvl(0));
 router.post('/refresh', 
     $.v({ }),
     async (req,res) => {
-    
+
+        let output = await $.auth.update(req.token);
+
+        res.dataanswer(output);
+
     }
 );
 
@@ -42,8 +46,23 @@ router.post('/logout',
     $.v({ }),
     async (req,res) => {
 
-    }
-); 
+        let removed = await $.auth.remove(req.token);
+        if(!removed) return res.erroranswer(400,'Connection close falure');
 
+        res.okanswer();
+
+    }
+);
+
+router.post('/drop',
+    $.v({ }),
+    async (req,res) => {
+        
+        await $.auth.clear(req.user._id);
+
+        res.okanswer();
+
+    }
+);
 
 module.exports = router;

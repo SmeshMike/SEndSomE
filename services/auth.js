@@ -22,19 +22,15 @@ async function authorize(req,res,next)
 
     req.level = 0;
     req.user = null;
-    req.expired = false;
     req.refresh = false;
+    req.token = token;
 
     if(!token) return next();
 
     jwt.verify(token,privatekey,(err,decoded) => {
         
-        if(err && err.name === 'TokenExpiredError')
-        {
-            req.expired = true;
-            next();
-        }
-        if(err) res.erroranswer(400,'Invalid token');
+        if(err && err.name === 'TokenExpiredError') return res.erroranswer(400, 'Token expired');
+        if(err) return res.erroranswer(400,'Invalid token');
 
         if(!decoded) return res.erroranswer(500, "...");
         let { innertoken, refreshtoken } = decoded;
@@ -42,7 +38,7 @@ async function authorize(req,res,next)
         if(refreshtoken)
         {
             req.refresh = true;
-            next();
+            return next();
         }
 
         if(!innertoken) return res.erroranswer(400, "Invalid token");
