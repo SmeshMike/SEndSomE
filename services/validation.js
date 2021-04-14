@@ -2,7 +2,9 @@
 const Schema = require('validate');
 const { Types } = require('mongoose');
 
-module.exports = function (obj) {
+module.exports = function (obj, inits) {
+
+    if(!inits) inits = {};
 
     const sch = {};
     for(let prop in obj)
@@ -54,18 +56,19 @@ module.exports = function (obj) {
 
         let errors = validator.validate(req.body);
         if(errors.length > 0) {
-            res.status(400).json({ error : errors.map(e => e.message).join('\n')});
+            res.erroranswer(400,errors.map(e => e.message).join('\n'));
         }
         else {
             for(let prop in req.body)
             {
+                if(!(prop in sch)) { delete req.body[prop]; continue; }
                 if(prop.length > 2 && prop.substr(prop.length - 2) === 'id')
                 {
                     try 
                     {
                         req.body[prop] = Types.ObjectId(req.body[prop]);
                     }
-                    catch(ex) { return res.status(400).json({ error : "Invalid id"});  }
+                    catch(ex) { return res.erroranswer(400,"Invalid id");  }
                 }
                 if(prop.length > 3 && prop.substr(prop.length - 3) === 'ids')
                 {
@@ -73,10 +76,12 @@ module.exports = function (obj) {
                     {
                         req.body[prop] = req.body[prop].map(id => Types.ObjectId(id));
                     }
-                    catch(ex) { return res.status(400).json({ error : "Invalid ids"});  }
+                    catch(ex) { return res.erroranswer(400,"Invalid ids");  }
                 }
             }
 
+            let polinated = Object.assign({}, inits, req.body);
+            req.body = polinated;
             next();
             
         }
